@@ -11,16 +11,15 @@ import androidx.core.content.ContextCompat
 import kotlin.math.min
 
 class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
-    private val paintLight = Paint().apply { color = Color.parseColor("#EEEEEE") }
-    private val paintDark = Paint().apply { color = Color.parseColor("#779556") }
-    private val paintSelected = Paint().apply { color = Color.parseColor("#88FFFF00") }
-    private val paintCheck = Paint().apply { color = Color.parseColor("#99FF0000") }
-
-    // New Highlight Paint: Semi-transparent gray dot
+    // Sharp edges for pixel art feel (isAntiAlias = false)
+    private val paintLight = Paint().apply { color = Color.parseColor("#FFFFFF"); isAntiAlias = false }
+    private val paintDark = Paint().apply { color = Color.parseColor("#888888"); isAntiAlias = false }
+    private val paintSelected = Paint().apply { color = Color.parseColor("#88FFD700"); isAntiAlias = false }
+    private val paintCheck = Paint().apply { color = Color.parseColor("#AAFF0000"); isAntiAlias = false }
     private val paintHighlight = Paint().apply {
-        color = Color.parseColor("#44000000")
+        color = Color.parseColor("#444444")
         style = Paint.Style.FILL
-        isAntiAlias = true
+        isAntiAlias = false
     }
 
     var game: ChessGame? = null
@@ -28,7 +27,6 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var fromCol: Int = -1
     private var fromRow: Int = -1
     private var legalMoves: List<Pair<Int, Int>> = emptyList()
-
     private val pieceDrawables = mutableMapOf<Int, Drawable>()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -41,25 +39,23 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         super.onDraw(canvas)
         cellSide = width / 8f
         drawBoard(canvas)
-        drawHighlights(canvas) // Draw dots under pieces
+        drawHighlights(canvas)
         drawPieces(canvas)
     }
 
     private fun drawBoard(canvas: Canvas) {
         for (row in 0..7) {
             for (col in 0..7) {
-                // Draw square
-                canvas.drawRect(col * cellSide, (7 - row) * cellSide, (col + 1) * cellSide, (7 - row + 1) * cellSide, if ((row + col) % 2 == 0) paintDark else paintLight)
+                val rect = RectF(col * cellSide, (7 - row) * cellSide, (col + 1) * cellSide, (7 - row + 1) * cellSide)
+                canvas.drawRect(rect, if ((row + col) % 2 == 0) paintDark else paintLight)
 
-                // Draw selection highlight
                 if (col == fromCol && row == fromRow) {
-                    canvas.drawRect(col * cellSide, (7 - row) * cellSide, (col + 1) * cellSide, (7 - row + 1) * cellSide, paintSelected)
+                    canvas.drawRect(rect, paintSelected)
                 }
 
-                // Draw check highlight
                 val piece = game?.pieceAt(col, row)
                 if (piece?.rank == Rank.KING && game?.isInCheck(piece.player) == true) {
-                    canvas.drawRect(col * cellSide, (7 - row) * cellSide, (col + 1) * cellSide, (7 - row + 1) * cellSide, paintCheck)
+                    canvas.drawRect(rect, paintCheck)
                 }
             }
         }
@@ -69,8 +65,6 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         legalMoves.forEach { (c, r) ->
             val centerX = (c + 0.5f) * cellSide
             val centerY = (7 - r + 0.5f) * cellSide
-
-            // If the square is empty, draw a small dot. If occupied, draw a large ring/circle.
             val radius = if (game?.pieceAt(c, r) == null) cellSide / 6f else cellSide / 2.2f
 
             if (game?.pieceAt(c, r) != null) {
@@ -79,13 +73,12 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
             } else {
                 paintHighlight.style = Paint.Style.FILL
             }
-
             canvas.drawCircle(centerX, centerY, radius, paintHighlight)
         }
     }
 
     private fun drawPieces(canvas: Canvas) {
-        game?.piecesBox?.toList()?.forEach { piece ->
+        game?.piecesBox?.forEach { piece ->
             getPieceDrawable(piece)?.let {
                 it.setBounds(
                     (piece.col * cellSide).toInt(),
@@ -127,12 +120,10 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                     legalMoves = game?.getLegalMovesForPiece(selected) ?: emptyList()
                 }
             } else {
-                // This is where movePiece is actually used!
-                if (fromCol != col || fromRow != row) {
-                    game?.movePiece(fromCol, fromRow, col, row)
-                }
+                // Attempt the move through the Game engine
+                game?.movePiece(fromCol, fromRow, col, row)
 
-                // Reset selection state
+                // Cleanup selection
                 fromCol = -1
                 fromRow = -1
                 legalMoves = emptyList()
@@ -142,7 +133,7 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
             }
-            invalidate() // Refresh UI to show the move and clear highlights
+            invalidate()
         }
         return true
     }
