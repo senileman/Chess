@@ -49,14 +49,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize Views
         chessView = findViewById(R.id.chess_view)
         chessView.game = chessGame
         drawerLayout = findViewById(R.id.drawer_layout)
         tvWhiteTimer = findViewById(R.id.tvWhiteTimer)
         tvBlackTimer = findViewById(R.id.tvBlackTimer)
 
-        // Navigation
         findViewById<ImageButton>(R.id.btn_menu_graphic).setOnClickListener {
             drawerLayout.openDrawer(GravityCompat.START)
         }
@@ -71,7 +69,6 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // Load game state from Repository
         GameRepository.loadGame(this, chessGame)
         if (chessGame.isTimerEnabled) {
             tvWhiteTimer.visibility = View.VISIBLE
@@ -82,10 +79,20 @@ class MainActivity : AppCompatActivity() {
         chessView.invalidate()
     }
 
-    override fun onPause() {
-        super.onPause()
-        // Save using Repository
+    override fun onStop() {
+        super.onStop()
+        // Cancel any pending timer callbacks to prevent leaks on rotation or backgrounding.
+        // We re-post in onStart if the timer should still be running.
+        handler.removeCallbacks(timerRunnable)
         GameRepository.saveGame(this, chessGame)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Re-attach the timer if the game is still active (handles rotation correctly).
+        if (chessGame.isTimerEnabled && !chessGame.isGameOver) {
+            handler.post(timerRunnable)
+        }
     }
 
     private fun showTimeSettingDialog() {

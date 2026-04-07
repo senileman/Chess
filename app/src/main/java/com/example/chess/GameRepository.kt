@@ -21,13 +21,9 @@ object GameRepository {
         val data = prefs.getString("board", "") ?: ""
         if (data.isEmpty()) return
 
-        game.piecesBox.clear()
-        data.split(";").forEach {
-            val p = it.split(",")
-            val piece = Piece(p[0].toInt(), Player.valueOf(p[3]), Rank.valueOf(p[4]), p[1].toInt(), p[2].toInt())
-            piece.hasMoved = p[5].toBoolean()
-            game.piecesBox.add(piece)
-        }
+        // Delegate board parsing to ChessGame — single source of truth for deserialization.
+        game.deserializeBoard(data)
+
         game.playerTurn = Player.valueOf(prefs.getString("turn", "WHITE")!!)
         game.whiteTimeMillis = prefs.getLong("wTime", 600000)
         game.blackTimeMillis = prefs.getLong("bTime", 600000)
