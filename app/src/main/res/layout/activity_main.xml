@@ -6,11 +6,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- ═══════════════════════════════════════════════════════════
+         Main content
+    ════════════════════════════════════════════════════════════════ -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#333333">
 
+        <!-- Title bar -->
         <TextView
             android:id="@+id/tvStatus"
             android:layout_width="wrap_content"
@@ -38,6 +42,28 @@
             app:layout_constraintTop_toTopOf="@+id/tvStatus"
             app:tint="#FFFFFF" />
 
+        <!--
+            Point Difference badge — only visible in randomized mode.
+            Sits between the title and the chess board.
+            Format: "Even game"  /  "⬜ White +5"  /  "⬛ Black +10"
+        -->
+        <TextView
+            android:id="@+id/tvPointDiff"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="3dp"
+            android:background="#22FFD700"
+            android:textColor="#FFD700"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tvStatus" />
+
+        <!-- Black timer — anchored above chess view -->
         <TextView
             android:id="@+id/tvBlackTimer"
             android:layout_width="wrap_content"
@@ -51,6 +77,7 @@
             app:layout_constraintBottom_toTopOf="@+id/chess_view"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Chess board — centred vertically, square -->
         <com.example.chess.ChessView
             android:id="@+id/chess_view"
             android:layout_width="match_parent"
@@ -61,6 +88,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- White timer — anchored below chess view -->
         <TextView
             android:id="@+id/tvWhiteTimer"
             android:layout_width="wrap_content"
@@ -76,15 +104,9 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <com.google.android.material.navigation.NavigationView
-        android:id="@+id/nav_view"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:background="#222222"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark"
-        app:itemIconTint="#FFFFFF"
-        app:itemTextColor="#FFFFFF"
-        app:menu="@menu/drawer_menu" />
+    <!-- ═══════════════════════════════════════════════════════════
+         Navigation drawer — custom layout (replaces NavigationView)
+    ════════════════════════════════════════════════════════════════ -->
+    <include layout="@layout/drawer_content" />
 
 </androidx.drawerlayout.widget.DrawerLayout>

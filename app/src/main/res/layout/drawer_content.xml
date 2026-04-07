@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_custom"
+    android:layout_width="300dp"
+    android:layout_height="match_parent"
+    android:layout_gravity="start"
+    android:background="#1A1A1A"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="52dp"
+        android:paddingBottom="32dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp">
+
+        <!-- ── Game Options ────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GAME OPTIONS"
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:letterSpacing="0.15"
+            android:paddingBottom="14dp" />
+
+        <Button
+            android:id="@+id/btnDrawerRestart"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Restart Game"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#779556" />
+
+        <!-- ── Divider ─────────────────────────────────────── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="24dp"
+            android:background="#333333" />
+
+        <!-- ── Piece Randomizer ───────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PIECE RANDOMIZER"
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:letterSpacing="0.15"
+            android:paddingBottom="14dp" />
+
+        <!-- Base Starting Score -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Base Score per Side  (15 – 135)"
+            android:textColor="#DDDDDD"
+            android:textSize="14sp"
+            android:paddingBottom="6dp" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="#555555"
+            app:hintTextColor="#888888">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etBaseScore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:text="39"
+                android:textColor="#FFFFFF"
+                android:hint="e.g. 39 (standard)" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Piece values: Pawn=1 · Knight/Bishop=3 · Rook=5 · Queen=9"
+            android:textColor="#666666"
+            android:textSize="11sp"
+            android:paddingTop="4dp"
+            android:paddingBottom="20dp" />
+
+        <!-- Point Difference label row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Point Difference"
+                android:textColor="#DDDDDD"
+                android:textSize="14sp" />
+
+            <!-- Live readout: shows "+24 ⬛ Black bonus" / "−24 ⬜ White bonus" / "0  (even)" -->
+            <TextView
+                android:id="@+id/tvSliderValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0  (even)"
+                android:textColor="#FFD700"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:minWidth="100dp"
+                android:gravity="end" />
+
+        </LinearLayout>
+
+        <!--
+            Slider range: −120 to +120
+            Negative → white bonus  (white gets BSS + |pd|, black stays at BSS)
+            Positive → black bonus  (black gets BSS + pd,   white stays at BSS)
+        -->
+        <com.google.android.material.slider.Slider
+            android:id="@+id/sliderPointDiff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:valueFrom="-120"
+            android:valueTo="120"
+            android:value="0"
+            android:stepSize="1"
+            app:thumbColor="#FFD700"
+            app:trackColorActive="#FFD700"
+            app:trackColorInactive="#444444"
+            app:haloColor="@android:color/transparent" />
+
+        <!-- Slider axis labels -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingBottom="20dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⬜ White bonus"
+                android:textColor="#666666"
+                android:textSize="11sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Black bonus ⬛"
+                android:textColor="#666666"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnRandomize"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Randomize &amp; Start"
+            android:textColor="#1A1A1A"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:backgroundTint="#FFD700" />
+
+        <!-- ── Divider ─────────────────────────────────────── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="24dp"
+            android:background="#333333" />
+
+        <!-- ── Timer ──────────────────────────────────────── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="TIMER"
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:letterSpacing="0.15"
+            android:paddingBottom="14dp" />
+
+        <!-- Timer on/off toggle row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Enable Timer"
+                android:textColor="#DDDDDD"
+                android:textSize="14sp" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="false" />
+
+        </LinearLayout>
+
+        <!-- Timer duration inputs — only visible when timer is enabled -->
+        <LinearLayout
+            android:id="@+id/layoutTimerInputs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="#555555"
+                app:hintTextColor="#888888"
+                android:hint="White — minutes">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etWhiteMinutes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:textColor="#FFFFFF"
+                    android:text="10" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="#555555"
+                app:hintTextColor="#888888"
+                android:hint="Black — minutes">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etBlackMinutes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:textColor="#FFFFFF"
+                    android:text="10" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Timer values take effect on next Restart."
+                android:textColor="#666666"
+                android:textSize="11sp"
+                android:paddingTop="6dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

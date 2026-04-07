@@ -12,36 +12,158 @@ class ChessGame {
     var blackTimeMillis: Long = 600000
     private var enPassantTarget: Piece? = null
 
+    // --- Randomizer state ---
+    var isRandomized: Boolean = false
+    var baseStartingScore: Int = DEFAULT_BASE_SCORE
+    /**
+     * pointDifference > 0  →  black receives the bonus  (black gets BSS + pd)
+     * pointDifference < 0  →  white receives the bonus  (white gets BSS + |pd|)
+     * pointDifference = 0  →  both sides equal at BSS
+     *
+     * The BASE side always gets exactly BSS. Only the bonus side rises above it.
+     * This means the slider adds material to one side rather than removing it
+     * from the other, keeping BSS as the floor for both players.
+     */
+    var pointDifference: Int = 0
+
+    companion object {
+        const val DEFAULT_BASE_SCORE = 39
+        const val MIN_SCORE = 15   // all pawns
+        const val MAX_SCORE = 135  // all queens
+
+        val PIECE_VALUES = mapOf(
+            Rank.PAWN   to 1,
+            Rank.KNIGHT to 3,
+            Rank.BISHOP to 3,
+            Rank.ROOK   to 5,
+            Rank.QUEEN  to 9,
+            Rank.KING   to 0
+        )
+    }
+
     init { reset() }
 
+    // -------------------------------------------------------------------------
+    // Standard reset (non-randomized)
+    // -------------------------------------------------------------------------
     fun reset() {
-        piecesBox.clear(); playerTurn = Player.WHITE; isGameOver = false; winner = null; enPassantTarget = null
-        var idCounter = 0
-        for (i in 0..7) {
-            piecesBox.add(Piece(idCounter++, Player.WHITE, Rank.PAWN, i, 1))
-            piecesBox.add(Piece(idCounter++, Player.BLACK, Rank.PAWN, i, 6))
+        piecesBox.clear()
+        playerTurn = Player.WHITE
+        isGameOver = false
+        winner = null
+        enPassantTarget = null
+        isRandomized = false
+        var id = 0
+        for (col in 0..7) {
+            piecesBox.add(Piece(id++, Player.WHITE, Rank.PAWN, col, 1))
+            piecesBox.add(Piece(id++, Player.BLACK, Rank.PAWN, col, 6))
         }
-        val setup = arrayOf(Rank.ROOK, Rank.KNIGHT, Rank.BISHOP, Rank.QUEEN, Rank.KING, Rank.BISHOP, Rank.KNIGHT, Rank.ROOK)
-        for (i in 0..7) {
-            piecesBox.add(Piece(idCounter++, Player.WHITE, setup[i], i, 0))
-            piecesBox.add(Piece(idCounter++, Player.BLACK, setup[i], i, 7))
+        val setup = arrayOf(Rank.ROOK, Rank.KNIGHT, Rank.BISHOP, Rank.QUEEN,
+                            Rank.KING, Rank.BISHOP, Rank.KNIGHT, Rank.ROOK)
+        for (col in 0..7) {
+            piecesBox.add(Piece(id++, Player.WHITE, setup[col], col, 0))
+            piecesBox.add(Piece(id++, Player.BLACK, setup[col], col, 7))
         }
     }
 
-    fun serialize(): String = piecesBox.joinToString(";") { "${it.id},${it.col},${it.row},${it.player.name},${it.rank.name},${it.hasMoved}" }
+    // -------------------------------------------------------------------------
+    // Randomized reset
+    // -------------------------------------------------------------------------
+    /**
+     * Point-spread formula:
+     *   whiteTarget = BSS + if (pointDifference < 0) -pointDifference else 0
+     *   blackTarget = BSS + if (pointDifference > 0)  pointDifference else 0
+     *
+     * Example: BSS=39, pd=+24  →  white=39,  black=63
+     * Example: BSS=39, pd=-24  →  white=63,  black=39
+     * Example: BSS=39, pd=0    →  white=39,  black=39
+     *
+     * Both targets are clamped to [MIN_SCORE, MAX_SCORE] as a safety net.
+     */
+    fun randomizeBoard() {
+        piecesBox.clear()
+        playerTurn = Player.WHITE
+        isGameOver = false
+        winner = null
+        enPassantTarget = null
+        isRandomized = true
+
+        val whiteTarget = (baseStartingScore + if (pointDifference < 0) -pointDifference else 0)
+            .coerceIn(MIN_SCORE, MAX_SCORE)
+        val blackTarget = (baseStartingScore + if (pointDifference > 0) pointDifference else 0)
+            .coerceIn(MIN_SCORE, MAX_SCORE)
+
+        var id = 0
+        val backCols = (0..7).filter { it != 4 }  // 7 non-king columns
+
+        fun placeArmy(player: Player, target: Int, backRow: Int, pawnRow: Int) {
+            val pieces = generatePieces(target, 15).shuffled()
+            backCols.forEachIndexed { i, col ->
+                piecesBox.add(Piece(id++, player, pieces[i], col, backRow, hasMoved = true))
+            }
+            for (col in 0..7) {
+                piecesBox.add(Piece(id++, player, pieces[7 + col], col, pawnRow, hasMoved = true))
+            }
+            // King always present, never randomized
+            piecesBox.add(Piece(id++, player, Rank.KING, 4, backRow, hasMoved = false))
+        }
+
+        placeArmy(Player.WHITE, whiteTarget, backRow = 0, pawnRow = 1)
+        placeArmy(Player.BLACK, blackTarget, backRow = 7, pawnRow = 6)
+    }
+
+    /**
+     * Generates exactly [count] pieces whose values sum to [target].
+     * Uses slot-by-slot constrained random selection from {1, 3, 5, 9}.
+     */
+    private fun generatePieces(target: Int, count: Int): List<Rank> {
+        val validValues = listOf(1, 3, 5, 9)
+        val result = mutableListOf<Rank>()
+        var remaining = target
+
+        for (i in 0 until count) {
+            val slotsLeft = count - i
+            val minVal = (remaining - (slotsLeft - 1) * 9).coerceIn(1, 9)
+            val maxVal = (remaining - (slotsLeft - 1) * 1).coerceIn(1, 9)
+            val choices = validValues.filter { it in minVal..maxVal }
+            val chosen = choices.randomOrNull() ?: minVal
+            result.add(valueToRank(chosen))
+            remaining -= chosen
+        }
+        return result
+    }
+
+    private fun valueToRank(value: Int): Rank = when (value) {
+        1    -> Rank.PAWN
+        3    -> if (Math.random() < 0.5) Rank.KNIGHT else Rank.BISHOP
+        5    -> Rank.ROOK
+        9    -> Rank.QUEEN
+        else -> Rank.PAWN
+    }
+
+    // -------------------------------------------------------------------------
+    // Serialization
+    // -------------------------------------------------------------------------
+    fun serialize(): String =
+        piecesBox.joinToString(";") { "${it.id},${it.col},${it.row},${it.player.name},${it.rank.name},${it.hasMoved}" }
 
     fun deserializeBoard(data: String) {
         if (data.isEmpty()) return
         piecesBox.clear()
-        data.split(";").forEach {
-            val p = it.split(",")
+        data.split(";").forEach { entry ->
+            val p = entry.split(",")
             if (p.size == 6) {
-                val piece = Piece(p[0].toInt(), Player.valueOf(p[3]), Rank.valueOf(p[4]), p[1].toInt(), p[2].toInt())
-                piece.hasMoved = p[5].toBoolean(); piecesBox.add(piece)
+                piecesBox.add(
+                    Piece(p[0].toInt(), Player.valueOf(p[3]), Rank.valueOf(p[4]),
+                          p[1].toInt(), p[2].toInt(), hasMoved = p[5].toBoolean())
+                )
             }
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Core game logic (unchanged)
+    // -------------------------------------------------------------------------
     fun pieceAt(col: Int, row: Int): Piece? = piecesBox.find { it.col == col && it.row == row }
 
     fun movePiece(fromCol: Int, fromRow: Int, toCol: Int, toRow: Int) {
@@ -72,7 +194,8 @@ class ChessGame {
             val wasDouble = movingPiece.rank == Rank.PAWN && abs(toRow - fromRow) == 2
             piecesBox.removeAll { it.col == toCol && it.row == toRow && it.id != movingPiece.id }
             executeMove(movingPiece, toCol, toRow)
-            if (movingPiece.rank == Rank.PAWN && (movingPiece.row == 0 || movingPiece.row == 7)) movingPiece.rank = Rank.QUEEN
+            if (movingPiece.rank == Rank.PAWN && (movingPiece.row == 0 || movingPiece.row == 7))
+                movingPiece.rank = Rank.QUEEN
             finalizeTurn(movingPiece, wasDouble)
         }
     }
@@ -80,11 +203,11 @@ class ChessGame {
     fun getLegalMovesForPiece(p: Piece): List<Pair<Int, Int>> {
         val moves = mutableListOf<Pair<Int, Int>>()
         for (c in 0..7) for (r in 0..7) {
-            if (isMoveLegal(p.col, p.row, c, r)) moves.add(Pair(c, r))
-            else if (p.rank == Rank.PAWN && checkEnPassant(p, c, r)) moves.add(Pair(c, r))
+            if (isMoveLegal(p.col, p.row, c, r)) moves.add(c to r)
+            else if (p.rank == Rank.PAWN && checkEnPassant(p, c, r)) moves.add(c to r)
             else if (p.rank == Rank.KING && abs(c - p.col) == 2 && r == p.row) {
                 val home = if (p.player == Player.WHITE) 0 else 7
-                if (p.row == home && p.col == 4 && canCastle(p.col, p.row, c, r)) moves.add(Pair(c, r))
+                if (p.row == home && p.col == 4 && canCastle(p.col, p.row, c, r)) moves.add(c to r)
             }
         }
         return moves
@@ -93,7 +216,9 @@ class ChessGame {
     private fun checkEnPassant(p: Piece, toC: Int, toR: Int): Boolean {
         if (p.rank != Rank.PAWN) return false
         val fw = if (p.player == Player.WHITE) 1 else -1
-        return toR == p.row + fw && abs(toC - p.col) == 1 && pieceAt(toC, toR) == null && enPassantTarget?.col == toC && enPassantTarget?.row == p.row
+        return toR == p.row + fw && abs(toC - p.col) == 1 &&
+               pieceAt(toC, toR) == null &&
+               enPassantTarget?.col == toC && enPassantTarget?.row == p.row
     }
 
     private fun executeMove(p: Piece, toC: Int, toR: Int) { p.col = toC; p.row = toR; p.hasMoved = true }
@@ -130,26 +255,28 @@ class ChessGame {
     private fun canCastle(fC: Int, fR: Int, tC: Int, tR: Int): Boolean {
         val king = pieceAt(fC, fR) ?: return false
         if (king.hasMoved || isInCheck(king.player)) return false
-        val isSide = tC > fC
-        val rook = pieceAt(if (isSide) 7 else 0, fR)
+        val kingSide = tC > fC
+        val rook = pieceAt(if (kingSide) 7 else 0, fR)
         if (rook == null || rook.rank != Rank.ROOK || rook.hasMoved) return false
-        if ((if (isSide) 5..6 else 1..3).any { pieceAt(it, fR) != null }) return false
+        if ((if (kingSide) 5..6 else 1..3).any { pieceAt(it, fR) != null }) return false
         val opp = if (king.player == Player.WHITE) Player.BLACK else Player.WHITE
-        return (if (isSide) listOf(5, 6) else listOf(2, 3)).none { isSquareAttacked(it, fR, opp) }
+        return (if (kingSide) listOf(5, 6) else listOf(2, 3)).none { isSquareAttacked(it, fR, opp) }
     }
 
-    private fun isSquareAttacked(col: Int, row: Int, attacker: Player): Boolean {
-        return piecesBox.filter { it.player == attacker }.any { p ->
+    private fun isSquareAttacked(col: Int, row: Int, attacker: Player): Boolean =
+        piecesBox.filter { it.player == attacker }.any { p ->
             if (p.rank == Rank.PAWN) {
                 val fw = if (p.player == Player.WHITE) 1 else -1
                 abs(p.col - col) == 1 && row == p.row + fw
             } else canMove(p.col, p.row, col, row)
         }
-    }
 
     private fun checkGameState() {
         if (piecesBox.filter { it.player == playerTurn }.none { getLegalMovesForPiece(it).isNotEmpty() }) {
-            isGameOver = true; winner = if (isInCheck(playerTurn)) (if (playerTurn == Player.WHITE) Player.BLACK else Player.WHITE) else null
+            isGameOver = true
+            winner = if (isInCheck(playerTurn))
+                (if (playerTurn == Player.WHITE) Player.BLACK else Player.WHITE)
+            else null
         }
     }
 
@@ -157,12 +284,12 @@ class ChessGame {
         val p = pieceAt(fC, fR) ?: return false
         val dC = abs(tC - fC); val dR = abs(tR - fR)
         return when (p.rank) {
-            Rank.KING -> dC <= 1 && dR <= 1
-            Rank.ROOK -> isPathClear(fC, fR, tC, tR, true, ignored)
-            Rank.BISHOP -> isPathClear(fC, fR, tC, tR, false, ignored)
-            Rank.QUEEN -> isPathClear(fC, fR, tC, tR, true, ignored) || isPathClear(fC, fR, tC, tR, false, ignored)
+            Rank.KING   -> dC <= 1 && dR <= 1
+            Rank.ROOK   -> isPathClear(fC, fR, tC, tR, straight = true, ignored)
+            Rank.BISHOP -> isPathClear(fC, fR, tC, tR, straight = false, ignored)
+            Rank.QUEEN  -> isPathClear(fC, fR, tC, tR, true, ignored) || isPathClear(fC, fR, tC, tR, false, ignored)
             Rank.KNIGHT -> (dC == 1 && dR == 2) || (dC == 2 && dR == 1)
-            Rank.PAWN -> canPawnMove(fC, fR, tC, tR, p)
+            Rank.PAWN   -> canPawnMove(fC, fR, tC, tR, p)
         }
     }
 
@@ -182,7 +309,8 @@ class ChessGame {
     private fun canPawnMove(fC: Int, fR: Int, tC: Int, tR: Int, p: Piece): Boolean {
         val fw = if (p.player == Player.WHITE) 1 else -1
         if (fC == tC && tR == fR + fw && pieceAt(tC, tR) == null) return true
-        if (fC == tC && fR == (if (p.player == Player.WHITE) 1 else 6) && tR == fR + 2 * fw && pieceAt(fC, fR + fw) == null && pieceAt(tC, tR) == null) return true
+        if (fC == tC && fR == (if (p.player == Player.WHITE) 1 else 6) &&
+            tR == fR + 2 * fw && pieceAt(fC, fR + fw) == null && pieceAt(tC, tR) == null) return true
         if (abs(tC - fC) == 1 && tR == fR + fw && pieceAt(tC, tR) != null) return true
         return false
     }
