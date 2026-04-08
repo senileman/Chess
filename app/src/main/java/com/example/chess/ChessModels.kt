@@ -13,6 +13,5 @@ data class Piece(
     val player: Player,
     var rank: Rank,
     var col: Int,
-    var row: Int,
-    var hasMoved: Boolean = false
+    var row: Int
 )
