@@ -71,16 +71,24 @@ class ChessGame {
     private fun generatePieces(target: Int): List<Rank> {
         val count = 15
         val validValues = listOf(1, 3, 5, 9)
+        // Weights — tweak these to taste:
+        //   higher weight = appears more often when valid
+        val weights = mapOf(1 to 2, 3 to 5, 5 to 2, 9 to 1)
+
         return (0 until count).fold(target to mutableListOf<Rank>()) { (remaining, result), i ->
             val slotsLeft = count - i
             val minVal = (remaining - (slotsLeft - 1) * 9).coerceIn(1, 9)
             val maxVal = (remaining - (slotsLeft - 1) * 1).coerceIn(1, 9)
-            val chosen = validValues.filter { it in minVal..maxVal }.randomOrNull() ?: minVal
+
+            val pool = validValues
+                .filter { it in minVal..maxVal }
+                .flatMap { v -> List(weights[v] ?: 1) { v } }
+
+            val chosen = pool.randomOrNull() ?: minVal
             result.add(valueToRank(chosen))
             (remaining - chosen) to result
         }.second
     }
-
     private fun valueToRank(value: Int): Rank = when (value) {
         1    -> Rank.PAWN
         3    -> if (Math.random() < 0.5) Rank.KNIGHT else Rank.BISHOP
