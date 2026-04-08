@@ -143,6 +143,19 @@ class ChessGame {
         checkGameState()
     }
 
+    private fun canMove(fC: Int, fR: Int, tC: Int, tR: Int, ignored: Piece? = null): Boolean {
+        val p = pieceAt(fC, fR) ?: return false
+        val dC = abs(tC - fC); val dR = abs(tR - fR)
+        return when (p.rank) {
+            Rank.KING   -> dC <= 1 && dR <= 1
+            Rank.ROOK   -> isPathClear(fC, fR, tC, tR, straight = true, ignored)
+            Rank.BISHOP -> isPathClear(fC, fR, tC, tR, straight = false, ignored)
+            Rank.QUEEN  -> isPathClear(fC, fR, tC, tR, true, ignored) || isPathClear(fC, fR, tC, tR, false, ignored)
+            Rank.KNIGHT -> (dC == 1 && dR == 2) || (dC == 2 && dR == 1)
+            Rank.PAWN   -> canPawnMove(fC, fR, tC, tR, p)
+        }
+    }
+
     private fun isMoveLegal(fC: Int, fR: Int, tC: Int, tR: Int): Boolean {
         val movingPiece = pieceAt(fC, fR) ?: return false
         if (!canMove(fC, fR, tC, tR)) return false
@@ -164,6 +177,29 @@ class ChessGame {
                 abs(p.col - king.col) == 1 && king.row == p.row + fw
             } else canMove(p.col, p.row, king.col, king.row, ignored)
         }
+    }
+
+    private fun isPathClear(fC: Int, fR: Int, tC: Int, tR: Int, straight: Boolean, ignored: Piece? = null): Boolean {
+        if (straight && fC != tC && fR != tR) return false
+        if (!straight && abs(fC - tC) != abs(fR - tR)) return false
+        val cD = if (tC > fC) 1 else if (tC < fC) -1 else 0
+        val rD = if (tR > fR) 1 else if (tR < fR) -1 else 0
+        var c = fC + cD; var r = fR + rD
+        while (c != tC || r != tR) {
+            if (pieceAt(c, r)?.id?.let { it != ignored?.id } == true) return false
+            c += cD; r += rD
+        }
+        return true
+    }
+
+    private fun canPawnMove(fC: Int, fR: Int, tC: Int, tR: Int, p: Piece): Boolean {
+        val fw = if (p.player == Player.WHITE) 1 else -1
+        if (fC == tC && tR == fR + fw && pieceAt(tC, tR) == null) return true
+        val twoStepRows = if (p.player == Player.WHITE) setOf(0, 1) else setOf(6, 7)
+        if (fC == tC && fR in twoStepRows &&
+            tR == fR + 2 * fw && pieceAt(fC, fR + fw) == null && pieceAt(tC, tR) == null) return true
+        if (abs(tC - fC) == 1 && tR == fR + fw && pieceAt(tC, tR) != null) return true
+        return false
     }
 
     // -------------------------------------------------------------------------
@@ -211,44 +247,6 @@ class ChessGame {
             if (wSquareColor == bSquareColor) return true
         }
 
-        return false
-    }
-
-    // -------------------------------------------------------------------------
-    // Movement rules
-    // -------------------------------------------------------------------------
-    private fun canMove(fC: Int, fR: Int, tC: Int, tR: Int, ignored: Piece? = null): Boolean {
-        val p = pieceAt(fC, fR) ?: return false
-        val dC = abs(tC - fC); val dR = abs(tR - fR)
-        return when (p.rank) {
-            Rank.KING   -> dC <= 1 && dR <= 1
-            Rank.ROOK   -> isPathClear(fC, fR, tC, tR, straight = true, ignored)
-            Rank.BISHOP -> isPathClear(fC, fR, tC, tR, straight = false, ignored)
-            Rank.QUEEN  -> isPathClear(fC, fR, tC, tR, true, ignored) || isPathClear(fC, fR, tC, tR, false, ignored)
-            Rank.KNIGHT -> (dC == 1 && dR == 2) || (dC == 2 && dR == 1)
-            Rank.PAWN   -> canPawnMove(fC, fR, tC, tR, p)
-        }
-    }
-
-    private fun isPathClear(fC: Int, fR: Int, tC: Int, tR: Int, straight: Boolean, ignored: Piece? = null): Boolean {
-        if (straight && fC != tC && fR != tR) return false
-        if (!straight && abs(fC - tC) != abs(fR - tR)) return false
-        val cD = if (tC > fC) 1 else if (tC < fC) -1 else 0
-        val rD = if (tR > fR) 1 else if (tR < fR) -1 else 0
-        var c = fC + cD; var r = fR + rD
-        while (c != tC || r != tR) {
-            if (pieceAt(c, r)?.id?.let { it != ignored?.id } == true) return false
-            c += cD; r += rD
-        }
-        return true
-    }
-
-    private fun canPawnMove(fC: Int, fR: Int, tC: Int, tR: Int, p: Piece): Boolean {
-        val fw = if (p.player == Player.WHITE) 1 else -1
-        if (fC == tC && tR == fR + fw && pieceAt(tC, tR) == null) return true
-        if (fC == tC && fR == (if (p.player == Player.WHITE) 1 else 6) &&
-            tR == fR + 2 * fw && pieceAt(fC, fR + fw) == null && pieceAt(tC, tR) == null) return true
-        if (abs(tC - fC) == 1 && tR == fR + fw && pieceAt(tC, tR) != null) return true
         return false
     }
 }
