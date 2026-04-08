@@ -8,16 +8,17 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import kotlin.math.min
 
 class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     // Sharp edges for pixel art feel (isAntiAlias = false)
-    private val paintLight = Paint().apply { color = Color.parseColor("#FFFFFF"); isAntiAlias = false }
-    private val paintDark = Paint().apply { color = Color.parseColor("#888888"); isAntiAlias = false }
-    private val paintSelected = Paint().apply { color = Color.parseColor("#88FFD700"); isAntiAlias = false }
-    private val paintCheck = Paint().apply { color = Color.parseColor("#AAFF0000"); isAntiAlias = false }
+    private val paintLight    = Paint().apply { color = "#FFFFFF".toColorInt(); isAntiAlias = false }
+    private val paintDark     = Paint().apply { color = "#888888".toColorInt(); isAntiAlias = false }
+    private val paintSelected = Paint().apply { color = "#88FFD700".toColorInt(); isAntiAlias = false }
+    private val paintCheck    = Paint().apply { color = "#AAFF0000".toColorInt(); isAntiAlias = false }
     private val paintHighlight = Paint().apply {
-        color = Color.parseColor("#444444")
+        color = "#444444".toColorInt()
         style = Paint.Style.FILL
         isAntiAlias = false
     }
@@ -79,19 +80,18 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private fun drawPieces(canvas: Canvas) {
         game?.piecesBox?.forEach { piece ->
-            getPieceDrawable(piece)?.let {
-                it.setBounds(
-                    (piece.col * cellSide).toInt(),
-                    ((7 - piece.row) * cellSide).toInt(),
-                    ((piece.col + 1) * cellSide).toInt(),
-                    ((7 - piece.row + 1) * cellSide).toInt()
-                )
-                it.draw(canvas)
-            }
+            val drawable = getPieceDrawable(piece)
+            drawable.setBounds(
+                (piece.col * cellSide).toInt(),
+                ((7 - piece.row) * cellSide).toInt(),
+                ((piece.col + 1) * cellSide).toInt(),
+                ((7 - piece.row + 1) * cellSide).toInt()
+            )
+            drawable.draw(canvas)
         }
     }
 
-    private fun getPieceDrawable(piece: Piece): Drawable? {
+    private fun getPieceDrawable(piece: Piece): Drawable {
         val resId = when (piece.player) {
             Player.WHITE -> when (piece.rank) {
                 Rank.KING -> R.drawable.ic_white_king; Rank.QUEEN -> R.drawable.ic_white_queen
@@ -137,7 +137,14 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                 }
             }
             invalidate()
+            performClick()
         }
+        return true
+    }
+
+    // Required alongside onTouchEvent override for accessibility services.
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 

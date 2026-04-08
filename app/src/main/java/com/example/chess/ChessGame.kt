@@ -29,15 +29,6 @@ class ChessGame {
         const val DEFAULT_BASE_SCORE = 39
         const val MIN_SCORE = 15   // all pawns
         const val MAX_SCORE = 135  // all queens
-
-        val PIECE_VALUES = mapOf(
-            Rank.PAWN   to 1,
-            Rank.KNIGHT to 3,
-            Rank.BISHOP to 3,
-            Rank.ROOK   to 5,
-            Rank.QUEEN  to 9,
-            Rank.KING   to 0
-        )
     }
 
     init { reset() }
@@ -87,7 +78,7 @@ class ChessGame {
         val backCols = (0..7).filter { it != 4 }  // 7 non-king columns
 
         fun placeArmy(player: Player, target: Int, backRow: Int, pawnRow: Int) {
-            val pieces = generatePieces(target, 15).shuffled()
+            val pieces = generatePieces(target).shuffled()
             backCols.forEachIndexed { i, col ->
                 piecesBox.add(Piece(id++, player, pieces[i], col, backRow, hasMoved = true))
             }
@@ -103,23 +94,21 @@ class ChessGame {
     }
 
     /**
-     * Generates exactly [count] pieces whose values sum to [target].
+     * Generates exactly 15 pieces whose values sum to [target].
+     * Uses fold to avoid a mutable accumulator whose final write would be flagged
+     * as an assigned-but-never-read value by the Kotlin compiler.
      */
-    private fun generatePieces(target: Int, count: Int): List<Rank> {
+    private fun generatePieces(target: Int): List<Rank> {
+        val count = 15
         val validValues = listOf(1, 3, 5, 9)
-        val result = mutableListOf<Rank>()
-        var remaining = target
-
-        for (i in 0 until count) {
+        return (0 until count).fold(target to mutableListOf<Rank>()) { (remaining, result), i ->
             val slotsLeft = count - i
             val minVal = (remaining - (slotsLeft - 1) * 9).coerceIn(1, 9)
             val maxVal = (remaining - (slotsLeft - 1) * 1).coerceIn(1, 9)
-            val choices = validValues.filter { it in minVal..maxVal }
-            val chosen = choices.randomOrNull() ?: minVal
+            val chosen = validValues.filter { it in minVal..maxVal }.randomOrNull() ?: minVal
             result.add(valueToRank(chosen))
-            remaining -= chosen
-        }
-        return result
+            (remaining - chosen) to result
+        }.second
     }
 
     private fun valueToRank(value: Int): Rank = when (value) {
@@ -168,7 +157,7 @@ class ChessGame {
         if (movingPiece.rank == Rank.KING && abs(toCol - fromCol) == 2) {
             val homeRow = if (movingPiece.player == Player.WHITE) 0 else 7
             if (fromRow == homeRow && fromCol == 4 && (toCol == 2 || toCol == 6)) {
-                if (canCastle(fromCol, fromRow, toCol, toRow)) {
+                if (canCastle(fromCol, fromRow, toCol)) {
                     executeMove(movingPiece, toCol, toRow)
                     val rCol = if (toCol > fromCol) 7 else 0
                     val rDest = if (toCol > fromCol) 5 else 3
@@ -196,7 +185,7 @@ class ChessGame {
             else if (p.rank == Rank.PAWN && checkEnPassant(p, c, r)) moves.add(c to r)
             else if (p.rank == Rank.KING && abs(c - p.col) == 2 && r == p.row) {
                 val home = if (p.player == Player.WHITE) 0 else 7
-                if (p.row == home && p.col == 4 && canCastle(p.col, p.row, c, r)) moves.add(c to r)
+                if (p.row == home && p.col == 4 && canCastle(p.col, p.row, c)) moves.add(c to r)
             }
         }
         return moves
@@ -241,7 +230,7 @@ class ChessGame {
         }
     }
 
-    private fun canCastle(fC: Int, fR: Int, tC: Int, tR: Int): Boolean {
+    private fun canCastle(fC: Int, fR: Int, tC: Int): Boolean {
         val king = pieceAt(fC, fR) ?: return false
         if (king.hasMoved || isInCheck(king.player)) return false
         val kingSide = tC > fC

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Really Bad Chess Multiplayer Edition</string>
+    <string name="point_diff_display">⬜ %1$d  —  %2$d ⬛</string>
 </resources>

@@ -1,23 +1,25 @@
 package com.example.chess
 
-import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -142,16 +144,16 @@ class MainActivity : AppCompatActivity() {
 
     // ── Timer settings persistence ────────────────────────────────────────────
     private fun loadTimerSettings() {
-        val prefs = getSharedPreferences("chess_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("chess_prefs", MODE_PRIVATE)
         whiteTimeSetting = prefs.getLong(PREF_W_SETTING, DEFAULT_TIME_MS)
         blackTimeSetting = prefs.getLong(PREF_B_SETTING, DEFAULT_TIME_MS)
     }
 
     private fun saveTimerSettings() {
-        getSharedPreferences("chess_prefs", Context.MODE_PRIVATE).edit()
-            .putLong(PREF_W_SETTING, whiteTimeSetting)
-            .putLong(PREF_B_SETTING, blackTimeSetting)
-            .apply()
+        getSharedPreferences("chess_prefs", MODE_PRIVATE).edit {
+            putLong(PREF_W_SETTING, whiteTimeSetting)
+            putLong(PREF_B_SETTING, blackTimeSetting)
+        }
     }
 
     // ── View binding ──────────────────────────────────────────────────────────
@@ -192,7 +194,7 @@ class MainActivity : AppCompatActivity() {
             drawerLayout.openDrawer(GravityCompat.START)
         }
 
-        findViewById<android.widget.Button>(R.id.btnRandomize).setOnClickListener {
+        findViewById<Button>(R.id.btnRandomize).setOnClickListener {
             if (applyRandomizerSettings()) {
                 drawerLayout.closeDrawer(GravityCompat.START)
             }
@@ -346,7 +348,7 @@ class MainActivity : AppCompatActivity() {
         val bss = chessGame.baseStartingScore
         val w   = bss + if (pd > 0) pd  else 0
         val b   = bss + if (pd < 0) -pd else 0
-        tvPointDiff.text = "⬜ $w  —  $b ⬛"
+        tvPointDiff.text = getString(R.string.point_diff_display, w, b)
         tvPointDiff.visibility = View.VISIBLE
     }
 
@@ -383,5 +385,5 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun formatTime(ms: Long): String =
-        String.format("%02d:%02d", (ms / 1000) / 60, (ms / 1000) % 60)
+        String.format(Locale.ROOT, "%02d:%02d", (ms / 1000) / 60, (ms / 1000) % 60)
 }
