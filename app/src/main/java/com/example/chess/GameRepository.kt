@@ -29,8 +29,8 @@ object GameRepository {
         game.deserializeBoard(data)
 
         game.playerTurn      = Player.valueOf(prefs.getString("turn", "WHITE")!!)
-        game.whiteTimeMillis = prefs.getLong("wTime", 600000)
-        game.blackTimeMillis = prefs.getLong("bTime", 600000)
+        game.whiteTimeMillis = prefs.getLong("wTime", 900000)
+        game.blackTimeMillis = prefs.getLong("bTime", 900000)
         game.isTimerEnabled  = prefs.getBoolean("timerOn", false)
         game.isGameOver      = prefs.getBoolean("over", false)
         // Randomizer fields

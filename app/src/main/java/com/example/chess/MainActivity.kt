@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -97,6 +99,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Safely starts the timer, cancelling any existing instance first. */
+    private fun startTimer() {
+        handler.removeCallbacks(timerRunnable)
+        handler.post(timerRunnable)
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         setupDrawerListener()
         setupDrawerButtons()
         setupSlider()
+        setupBaseScoreWatcher()
         setupTimerToggle()
         setupTimeToggleGroups()
 
@@ -121,7 +130,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (chessGame.isTimerEnabled && !chessGame.isGameOver) handler.post(timerRunnable)
+        if (chessGame.isTimerEnabled && !chessGame.isGameOver) startTimer()
     }
 
     override fun onStop() {
@@ -170,9 +179,7 @@ class MainActivity : AppCompatActivity() {
                 handler.removeCallbacks(timerRunnable)
             }
             override fun onDrawerClosed(drawerView: View) {
-                if (chessGame.isTimerEnabled && !chessGame.isGameOver) {
-                    handler.post(timerRunnable)
-                }
+                if (chessGame.isTimerEnabled && !chessGame.isGameOver) startTimer()
             }
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) = Unit
             override fun onDrawerStateChanged(newState: Int) = Unit
@@ -201,6 +208,55 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Watches the base score field and tightens the slider bounds in real time.
+     * The maximum point difference is MAX_SCORE − baseScore, because the bonus
+     * side's total (BSS + |pd|) must not exceed MAX_SCORE.
+     */
+    private fun setupBaseScoreWatcher() {
+        etBaseScore.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                if (suppressListeners) return
+                updateSliderBounds()
+            }
+        })
+    }
+
+    /**
+     * Recalculates and applies the slider's symmetric bounds based on the
+     * current base score value. The limit is MAX_SCORE − baseScore, clamped
+     * to a minimum of 0 so the slider is never in an invalid state.
+     * The current slider value is also clamped silently if it falls outside
+     * the new range.
+     */
+    private fun updateSliderBounds() {
+        val bss = etBaseScore.text.toString().toIntOrNull()
+            ?.coerceIn(ChessGame.MIN_SCORE, ChessGame.MAX_SCORE)
+            ?: return  // Don't touch the slider while the field is empty/invalid
+
+        val limit = (ChessGame.MAX_SCORE - bss).toFloat().coerceAtLeast(0f)
+
+        // Order matters: adjust value before shrinking bounds to avoid
+        // "value out of range" exceptions inside the Slider widget.
+        val clampedValue = sliderPointDiff.value.coerceIn(-limit, limit)
+        if (limit == 0f) {
+            // Both bounds must differ; lock slider at 0
+            sliderPointDiff.valueFrom = -1f
+            sliderPointDiff.valueTo   =  1f
+            sliderPointDiff.value     =  0f
+        } else {
+            if (clampedValue < sliderPointDiff.valueFrom) sliderPointDiff.valueFrom = -limit
+            if (clampedValue > sliderPointDiff.valueTo)   sliderPointDiff.valueTo   =  limit
+            sliderPointDiff.value     = clampedValue
+            sliderPointDiff.valueFrom = -limit
+            sliderPointDiff.valueTo   =  limit
+        }
+
+        tvSliderValue.text = formatSliderLabel(sliderPointDiff.value.toInt())
+    }
+
+    /**
      * Positive pd → white gets the bonus.  Negative pd → black gets the bonus.
      *
      * +24  →  "+24  ⬜ White bonus"
@@ -221,10 +277,10 @@ class MainActivity : AppCompatActivity() {
             layoutTimerInputs.visibility = if (isChecked) View.VISIBLE else View.GONE
             chessGame.isTimerEnabled = isChecked
 
+            // Always cancel before conditionally restarting — never post twice.
             handler.removeCallbacks(timerRunnable)
-            if (isChecked && !chessGame.isGameOver) {
-                handler.post(timerRunnable)
-            }
+            // Do NOT start the timer here while the drawer is still open;
+            // onDrawerClosed will start it once the drawer is dismissed.
             updateTimerVisibility()
         }
     }
@@ -257,16 +313,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         val pd = sliderPointDiff.value.toInt()
-        // pd > 0 → white bonus; pd < 0 → black bonus
-        val whiteTarget = bss + if (pd > 0) pd else 0
-        val blackTarget = bss + if (pd < 0) -pd else 0
-        if (whiteTarget > ChessGame.MAX_SCORE || blackTarget > ChessGame.MAX_SCORE) {
-            Toast.makeText(this,
-                "Combination exceeds max score (${ChessGame.MAX_SCORE}). " +
-                "Lower the base score or the point difference.",
-                Toast.LENGTH_LONG).show()
-            return false
-        }
 
         handler.removeCallbacks(timerRunnable)
         chessGame.baseStartingScore = bss
@@ -281,7 +327,7 @@ class MainActivity : AppCompatActivity() {
         updatePointDiffDisplay()
         updateTimerUI()
 
-        if (chessGame.isTimerEnabled) handler.post(timerRunnable)
+        if (chessGame.isTimerEnabled) startTimer()
 
         Toast.makeText(this, "Board randomized!", Toast.LENGTH_SHORT).show()
         return true
@@ -308,8 +354,12 @@ class MainActivity : AppCompatActivity() {
         suppressListeners = true
 
         etBaseScore.setText(chessGame.baseStartingScore.toString())
-        sliderPointDiff.value = chessGame.pointDifference.toFloat().coerceIn(-120f, 120f)
-        tvSliderValue.text = formatSliderLabel(chessGame.pointDifference)
+        // Apply correct bounds before setting the value so the slider never
+        // receives a value outside its current range during restore.
+        updateSliderBounds()
+        sliderPointDiff.value = chessGame.pointDifference.toFloat()
+            .coerceIn(sliderPointDiff.valueFrom, sliderPointDiff.valueTo)
+        tvSliderValue.text = formatSliderLabel(sliderPointDiff.value.toInt())
 
         switchTimer.isChecked = chessGame.isTimerEnabled
         layoutTimerInputs.visibility = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
