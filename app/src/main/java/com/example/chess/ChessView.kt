@@ -129,7 +129,10 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
                 legalMoves = emptyList()
 
                 if (game?.isGameOver == true) {
-                    val msg = if (game?.winner != null) "${game?.winner} WINS!" else "STALEMATE!"
+                    val msg = when {
+                        game?.winner != null  -> "${game?.winner} WINS!"
+                        else                  -> game?.drawReason ?: "DRAW!"
+                    }
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
             }

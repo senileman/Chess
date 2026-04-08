@@ -7,9 +7,10 @@ class ChessGame {
     var playerTurn: Player = Player.WHITE
     var isGameOver: Boolean = false
     var winner: Player? = null
+    var drawReason: String? = null
     var isTimerEnabled: Boolean = false
-    var whiteTimeMillis: Long = 600000
-    var blackTimeMillis: Long = 600000
+    var whiteTimeMillis: Long = 900000
+    var blackTimeMillis: Long = 900000
     private var enPassantTarget: Piece? = null
 
     // --- Randomizer state ---
@@ -49,6 +50,7 @@ class ChessGame {
         playerTurn = Player.WHITE
         isGameOver = false
         winner = null
+        drawReason = null
         enPassantTarget = null
         isRandomized = false
         var id = 0
@@ -67,20 +69,12 @@ class ChessGame {
     // -------------------------------------------------------------------------
     // Randomized reset
     // -------------------------------------------------------------------------
-    /**
-     * Point-spread formula:
-     *   whiteTarget = BSS + if (pointDifference > 0)  pointDifference else 0
-     *   blackTarget = BSS + if (pointDifference < 0) -pointDifference else 0
-     *
-     * Example: BSS=39, pd=+24  →  white=63,  black=39
-     * Example: BSS=39, pd=-24  →  white=39,  black=63
-     * Example: BSS=39, pd=0    →  white=39,  black=39
-     */
     fun randomizeBoard() {
         piecesBox.clear()
         playerTurn = Player.WHITE
         isGameOver = false
         winner = null
+        drawReason = null
         enPassantTarget = null
         isRandomized = true
 
@@ -266,15 +260,63 @@ class ChessGame {
             } else canMove(p.col, p.row, col, row)
         }
 
+    // -------------------------------------------------------------------------
+    // Game-ending conditions
+    // -------------------------------------------------------------------------
     private fun checkGameState() {
+        // Insufficient material is checked first — it takes priority over stalemate
+        // in edge cases where both conditions coincide.
+        if (isInsufficientMaterial()) {
+            isGameOver = true
+            winner = null
+            drawReason = "INSUFFICIENT MATERIAL"
+            return
+        }
+
         if (piecesBox.filter { it.player == playerTurn }.none { getLegalMovesForPiece(it).isNotEmpty() }) {
             isGameOver = true
             winner = if (isInCheck(playerTurn))
                 (if (playerTurn == Player.WHITE) Player.BLACK else Player.WHITE)
-            else null
+            else { drawReason = "STALEMATE"; null }
         }
     }
 
+    /**
+     * Returns true when neither side has enough material to force checkmate:
+     *
+     *  • King vs King
+     *  • King + Bishop vs King
+     *  • King + Knight vs King
+     *  • King + Bishop vs King + Bishop  (bishops on the same square color)
+     */
+    private fun isInsufficientMaterial(): Boolean {
+        val whiteNonKing = piecesBox.filter { it.player == Player.WHITE && it.rank != Rank.KING }
+        val blackNonKing = piecesBox.filter { it.player == Player.BLACK && it.rank != Rank.KING }
+
+        // King vs King
+        if (whiteNonKing.isEmpty() && blackNonKing.isEmpty()) return true
+
+        val minorRanks = setOf(Rank.BISHOP, Rank.KNIGHT)
+
+        // King + minor piece vs lone King
+        if (whiteNonKing.isEmpty() && blackNonKing.size == 1 && blackNonKing[0].rank in minorRanks) return true
+        if (blackNonKing.isEmpty() && whiteNonKing.size == 1 && whiteNonKing[0].rank in minorRanks) return true
+
+        // King + Bishop vs King + Bishop — draw only when both bishops share the same square color
+        // Square color is determined by (col + row) % 2: 0 = dark, 1 = light
+        if (whiteNonKing.size == 1 && blackNonKing.size == 1 &&
+            whiteNonKing[0].rank == Rank.BISHOP && blackNonKing[0].rank == Rank.BISHOP) {
+            val wSquareColor = (whiteNonKing[0].col + whiteNonKing[0].row) % 2
+            val bSquareColor = (blackNonKing[0].col + blackNonKing[0].row) % 2
+            if (wSquareColor == bSquareColor) return true
+        }
+
+        return false
+    }
+
+    // -------------------------------------------------------------------------
+    // Movement rules
+    // -------------------------------------------------------------------------
     private fun canMove(fC: Int, fR: Int, tC: Int, tR: Int, ignored: Piece? = null): Boolean {
         val p = pieceAt(fC, fR) ?: return false
         val dC = abs(tC - fC); val dR = abs(tR - fR)
