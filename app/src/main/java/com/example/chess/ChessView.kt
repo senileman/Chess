@@ -12,6 +12,8 @@ import androidx.core.graphics.toColorInt
 import kotlin.math.min
 
 class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
+
+    // ── Drawing Configurations ───────────────────────────────────────────────
     // Sharp edges for pixel art feel (isAntiAlias = false)
     private val paintLight    = Paint().apply { color = "#FFFFFF".toColorInt(); isAntiAlias = false }
     private val paintDark     = Paint().apply { color = "#888888".toColorInt(); isAntiAlias = false }
@@ -22,20 +24,23 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         style = Paint.Style.FILL
         isAntiAlias = false
     }
+    private val pieceDrawables = mutableMapOf<Int, Drawable>()
 
+    // ── Game & View State ────────────────────────────────────────────────────
     var game: ChessGame? = null
     private var cellSide: Float = 0f
     private var fromCol: Int = -1
     private var fromRow: Int = -1
     private var legalMoves: List<Pair<Int, Int>> = emptyList()
-    private val pieceDrawables = mutableMapOf<Int, Drawable>()
 
+    // ── Measurement ──────────────────────────────────────────────────────────
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val smaller = min(measuredWidth, measuredHeight)
         setMeasuredDimension(smaller, smaller)
     }
 
+    // ── Drawing ──────────────────────────────────────────────────────────────
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         cellSide = width / 8f
@@ -107,6 +112,7 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         return pieceDrawables.getOrPut(resId) { ContextCompat.getDrawable(context, resId)!! }
     }
 
+    // ── Interaction ──────────────────────────────────────────────────────────
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN && game?.isGameOver == false) {
             val col = (event.x / cellSide).toInt()
@@ -148,6 +154,7 @@ class ChessView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
         return true
     }
 
+    // ── Public API ───────────────────────────────────────────────────────────
     fun resetSelection() {
         fromCol = -1
         fromRow = -1

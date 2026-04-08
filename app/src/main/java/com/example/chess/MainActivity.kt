@@ -50,20 +50,6 @@ class MainActivity : AppCompatActivity() {
     // Guard: prevents listeners from firing during programmatic sync
     private var suppressListeners = false
 
-    // ── Time format table ────────────────────────────────────────────────────
-    companion object {
-        private val TIME_OPTIONS_MS = longArrayOf(
-            60 * 60_000L,   // Very Long  – 60 min
-            30 * 60_000L,   // Long       – 30 min
-            15 * 60_000L,   // Medium     – 15 min
-             5 * 60_000L,   // Short      –  5 min
-             1 * 60_000L    // Bullet     –  1 min
-        )
-        private val DEFAULT_TIME_MS = TIME_OPTIONS_MS[2]   // 15 min
-        private const val PREF_W_SETTING = "wTimeSetting"
-        private const val PREF_B_SETTING = "bTimeSetting"
-    }
-
     private val whiteButtonIds = intArrayOf(
         R.id.btnWhite60, R.id.btnWhite30, R.id.btnWhite15, R.id.btnWhite5, R.id.btnWhite1
     )
@@ -71,43 +57,7 @@ class MainActivity : AppCompatActivity() {
         R.id.btnBlack60, R.id.btnBlack30, R.id.btnBlack15, R.id.btnBlack5, R.id.btnBlack1
     )
 
-    private fun timeMillisFromButtonId(btnId: Int): Long {
-        val idx = whiteButtonIds.indexOf(btnId).takeIf { it >= 0 }
-            ?: blackButtonIds.indexOf(btnId).takeIf { it >= 0 }
-            ?: return DEFAULT_TIME_MS
-        return TIME_OPTIONS_MS[idx]
-    }
-
-    private fun buttonIdForTime(isWhite: Boolean, timeMs: Long): Int {
-        val ids = if (isWhite) whiteButtonIds else blackButtonIds
-        val idx = TIME_OPTIONS_MS.indexOfFirst { it == timeMs }.takeIf { it >= 0 } ?: 2
-        return ids[idx]
-    }
-
-    // ── Timer runnable ───────────────────────────────────────────────────────
-    private val timerRunnable = object : Runnable {
-        override fun run() {
-            if (!chessGame.isTimerEnabled || chessGame.isGameOver) return
-            if (chessGame.playerTurn == Player.WHITE) chessGame.whiteTimeMillis -= 1000
-            else chessGame.blackTimeMillis -= 1000
-            updateTimerUI()
-            if (chessGame.whiteTimeMillis <= 0 || chessGame.blackTimeMillis <= 0) {
-                chessGame.isGameOver = true
-                val winner = if (chessGame.whiteTimeMillis <= 0) "Black" else "White"
-                Toast.makeText(this@MainActivity, "Time out! $winner wins!", Toast.LENGTH_LONG).show()
-            } else {
-                handler.postDelayed(this, 1000)
-            }
-        }
-    }
-
-    /** Safely starts the timer, cancelling any existing instance first. */
-    private fun startTimer() {
-        handler.removeCallbacks(timerRunnable)
-        handler.post(timerRunnable)
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // ── Lifecycle ────────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -142,21 +92,7 @@ class MainActivity : AppCompatActivity() {
         GameRepository.saveGame(this, chessGame)
     }
 
-    // ── Timer settings persistence ────────────────────────────────────────────
-    private fun loadTimerSettings() {
-        val prefs = getSharedPreferences("chess_prefs", MODE_PRIVATE)
-        whiteTimeSetting = prefs.getLong(PREF_W_SETTING, DEFAULT_TIME_MS)
-        blackTimeSetting = prefs.getLong(PREF_B_SETTING, DEFAULT_TIME_MS)
-    }
-
-    private fun saveTimerSettings() {
-        getSharedPreferences("chess_prefs", MODE_PRIVATE).edit {
-            putLong(PREF_W_SETTING, whiteTimeSetting)
-            putLong(PREF_B_SETTING, blackTimeSetting)
-        }
-    }
-
-    // ── View binding ──────────────────────────────────────────────────────────
+    // ── Initialization & View Binding ────────────────────────────────────────
     private fun bindViews() {
         chessView      = findViewById(R.id.chess_view)
         chessView.game = chessGame
@@ -174,7 +110,6 @@ class MainActivity : AppCompatActivity() {
         toggleBlackTime   = findViewById(R.id.toggleBlackTime)
     }
 
-    // ── Drawer listener ───────────────────────────────────────────────────────
     private fun setupDrawerListener() {
         drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
             override fun onDrawerOpened(drawerView: View) {
@@ -188,7 +123,6 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // ── Drawer buttons ────────────────────────────────────────────────────────
     private fun setupDrawerButtons() {
         findViewById<ImageButton>(R.id.btn_menu_graphic).setOnClickListener {
             drawerLayout.openDrawer(GravityCompat.START)
@@ -201,7 +135,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Slider ────────────────────────────────────────────────────────────────
+    // ── Drawer UI Setup ──────────────────────────────────────────────────────
     private fun setupSlider() {
         sliderPointDiff.addOnChangeListener { _, value, _ ->
             tvSliderValue.text = formatSliderLabel(value.toInt())
@@ -258,20 +192,6 @@ class MainActivity : AppCompatActivity() {
         tvSliderValue.text = formatSliderLabel(sliderPointDiff.value.toInt())
     }
 
-    /**
-     * Positive pd → white gets the bonus.  Negative pd → black gets the bonus.
-     *
-     * +24  →  "+24  ⬜ White bonus"
-     * −24  →  "−24  ⬛ Black bonus"
-     *   0  →  "0  (even)"
-     */
-    private fun formatSliderLabel(pd: Int): String = when {
-        pd == 0 -> "0  (even)"
-        pd > 0  -> "+$pd  ⬜ White bonus"
-        else    -> "$pd  ⬛ Black bonus"
-    }
-
-    // ── Timer toggle ──────────────────────────────────────────────────────────
     private fun setupTimerToggle() {
         switchTimer.setOnCheckedChangeListener { _, isChecked ->
             if (suppressListeners) return@setOnCheckedChangeListener
@@ -287,7 +207,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Time format toggle groups ─────────────────────────────────────────────
     private fun setupTimeToggleGroups() {
         toggleWhiteTime.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (suppressListeners || !isChecked) return@addOnButtonCheckedListener
@@ -304,7 +223,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Randomizer ────────────────────────────────────────────────────────────
+    // ── State Sync & Randomizer ──────────────────────────────────────────────
+    private fun loadTimerSettings() {
+        val prefs = getSharedPreferences("chess_prefs", MODE_PRIVATE)
+        whiteTimeSetting = prefs.getLong(PREF_W_SETTING, DEFAULT_TIME_MS)
+        blackTimeSetting = prefs.getLong(PREF_B_SETTING, DEFAULT_TIME_MS)
+    }
+
+    private fun saveTimerSettings() {
+        getSharedPreferences("chess_prefs", MODE_PRIVATE).edit {
+            putLong(PREF_W_SETTING, whiteTimeSetting)
+            putLong(PREF_B_SETTING, blackTimeSetting)
+        }
+    }
+
+    private fun syncDrawerToGameState() {
+        suppressListeners = true
+
+        etBaseScore.setText(chessGame.baseStartingScore.toString())
+        // Apply correct bounds before setting the value so the slider never
+        // receives a value outside its current range during restore.
+        updateSliderBounds()
+        sliderPointDiff.value = chessGame.pointDifference.toFloat()
+            .coerceIn(sliderPointDiff.valueFrom, sliderPointDiff.valueTo)
+        tvSliderValue.text = formatSliderLabel(sliderPointDiff.value.toInt())
+
+        switchTimer.isChecked = chessGame.isTimerEnabled
+        layoutTimerInputs.visibility = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
+
+        toggleWhiteTime.check(buttonIdForTime(isWhite = true,  timeMs = whiteTimeSetting))
+        toggleBlackTime.check(buttonIdForTime(isWhite = false, timeMs = blackTimeSetting))
+
+        suppressListeners = false
+    }
+
     private fun applyRandomizerSettings(): Boolean {
         val bss = etBaseScore.text.toString().toIntOrNull()
         if (bss == null || bss < ChessGame.MIN_SCORE || bss > ChessGame.MAX_SCORE) {
@@ -335,6 +287,41 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    // ── Timer Logic ──────────────────────────────────────────────────────────
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            if (!chessGame.isTimerEnabled || chessGame.isGameOver) return
+            if (chessGame.playerTurn == Player.WHITE) chessGame.whiteTimeMillis -= 1000
+            else chessGame.blackTimeMillis -= 1000
+            updateTimerUI()
+            if (chessGame.whiteTimeMillis <= 0 || chessGame.blackTimeMillis <= 0) {
+                chessGame.isGameOver = true
+                val winner = if (chessGame.whiteTimeMillis <= 0) "Black" else "White"
+                Toast.makeText(this@MainActivity, "Time out! $winner wins!", Toast.LENGTH_LONG).show()
+            } else {
+                handler.postDelayed(this, 1000)
+            }
+        }
+    }
+
+    /** Safely starts the timer, cancelling any existing instance first. */
+    private fun startTimer() {
+        handler.removeCallbacks(timerRunnable)
+        handler.post(timerRunnable)
+    }
+
+    // ── UI Updaters ──────────────────────────────────────────────────────────
+    private fun updateTimerUI() {
+        tvWhiteTimer.text = formatTime(chessGame.whiteTimeMillis)
+        tvBlackTimer.text = formatTime(chessGame.blackTimeMillis)
+    }
+
+    private fun updateTimerVisibility() {
+        val vis = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
+        tvWhiteTimer.visibility = vis
+        tvBlackTimer.visibility = vis
+    }
+
     /**
      * Displays point totals above the board.
      * pd > 0 → white bonus; pd < 0 → black bonus.
@@ -352,38 +339,47 @@ class MainActivity : AppCompatActivity() {
         tvPointDiff.visibility = View.VISIBLE
     }
 
-    private fun syncDrawerToGameState() {
-        suppressListeners = true
-
-        etBaseScore.setText(chessGame.baseStartingScore.toString())
-        // Apply correct bounds before setting the value so the slider never
-        // receives a value outside its current range during restore.
-        updateSliderBounds()
-        sliderPointDiff.value = chessGame.pointDifference.toFloat()
-            .coerceIn(sliderPointDiff.valueFrom, sliderPointDiff.valueTo)
-        tvSliderValue.text = formatSliderLabel(sliderPointDiff.value.toInt())
-
-        switchTimer.isChecked = chessGame.isTimerEnabled
-        layoutTimerInputs.visibility = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
-
-        toggleWhiteTime.check(buttonIdForTime(isWhite = true,  timeMs = whiteTimeSetting))
-        toggleBlackTime.check(buttonIdForTime(isWhite = false, timeMs = blackTimeSetting))
-
-        suppressListeners = false
+    // ── Helpers & Formatters ─────────────────────────────────────────────────
+    private fun timeMillisFromButtonId(btnId: Int): Long {
+        val idx = whiteButtonIds.indexOf(btnId).takeIf { it >= 0 }
+            ?: blackButtonIds.indexOf(btnId).takeIf { it >= 0 }
+            ?: return DEFAULT_TIME_MS
+        return TIME_OPTIONS_MS[idx]
     }
 
-    // ── Timer helpers ─────────────────────────────────────────────────────────
-    private fun updateTimerUI() {
-        tvWhiteTimer.text = formatTime(chessGame.whiteTimeMillis)
-        tvBlackTimer.text = formatTime(chessGame.blackTimeMillis)
+    private fun buttonIdForTime(isWhite: Boolean, timeMs: Long): Int {
+        val ids = if (isWhite) whiteButtonIds else blackButtonIds
+        val idx = TIME_OPTIONS_MS.indexOfFirst { it == timeMs }.takeIf { it >= 0 } ?: 2
+        return ids[idx]
     }
 
-    private fun updateTimerVisibility() {
-        val vis = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
-        tvWhiteTimer.visibility = vis
-        tvBlackTimer.visibility = vis
+    /**
+     * Positive pd → white gets the bonus.  Negative pd → black gets the bonus.
+     *
+     * +24  →  "+24  ⬜ White bonus"
+     * −24  →  "−24  ⬛ Black bonus"
+     * 0  →  "0  (even)"
+     */
+    private fun formatSliderLabel(pd: Int): String = when {
+        pd == 0 -> "0  (even)"
+        pd > 0  -> "+$pd  ⬜ White bonus"
+        else    -> "$pd  ⬛ Black bonus"
     }
 
     private fun formatTime(ms: Long): String =
         String.format(Locale.ROOT, "%02d:%02d", (ms / 1000) / 60, (ms / 1000) % 60)
+
+    // ── Constants ────────────────────────────────────────────────────────────
+    companion object {
+        private val TIME_OPTIONS_MS = longArrayOf(
+            60 * 60_000L,   // Very Long  – 60 min
+            30 * 60_000L,   // Long       – 30 min
+            15 * 60_000L,   // Medium     – 15 min
+            5 * 60_000L,   // Short      –  5 min
+            1 * 60_000L    // Bullet     –  1 min
+        )
+        private val DEFAULT_TIME_MS = TIME_OPTIONS_MS[2]   // 15 min
+        private const val PREF_W_SETTING = "wTimeSetting"
+        private const val PREF_B_SETTING = "bTimeSetting"
+    }
 }
