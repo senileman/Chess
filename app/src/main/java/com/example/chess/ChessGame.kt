@@ -86,7 +86,7 @@ class ChessGame {
                 piecesBox.add(Piece(id++, player, pieces[7 + col], col, pawnRow, hasMoved = true))
             }
             // King always present, never randomized
-            piecesBox.add(Piece(id++, player, Rank.KING, 4, backRow, hasMoved = false))
+            piecesBox.add(Piece(id, player, Rank.KING, 4, backRow, hasMoved = false))
         }
 
         placeArmy(Player.WHITE, whiteTarget, backRow = 0, pawnRow = 1)
