@@ -17,32 +17,6 @@
         android:paddingStart="20dp"
         android:paddingEnd="20dp">
 
-        <!-- ── Game Options ────────────────────────────────── -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="GAME OPTIONS"
-            android:textColor="#888888"
-            android:textSize="11sp"
-            android:letterSpacing="0.15"
-            android:paddingBottom="14dp" />
-
-        <Button
-            android:id="@+id/btnDrawerRestart"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Restart Game"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#779556" />
-
-        <!-- ── Divider ─────────────────────────────────────── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="24dp"
-            android:background="#333333" />
-
         <!-- ── Piece Randomizer ───────────────────────────── -->
         <TextView
             android:layout_width="match_parent"
@@ -105,13 +79,13 @@
                 android:textColor="#DDDDDD"
                 android:textSize="14sp" />
 
-            <!-- Live readout: shows "+24 ⬛ Black bonus" / "−24 ⬜ White bonus" / "0  (even)" -->
+            <!-- Live readout: "+24 ⬜ White bonus" / "−24 ⬛ Black bonus" / "0  (even)" -->
             <TextView
                 android:id="@+id/tvSliderValue"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0  (even)"
-                android:textColor="#FFD700"
+                android:textColor="#CCCCCC"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:minWidth="100dp"
@@ -121,8 +95,8 @@
 
         <!--
             Slider range: −120 to +120
-            Negative → white bonus  (white gets BSS + |pd|, black stays at BSS)
-            Positive → black bonus  (black gets BSS + pd,   white stays at BSS)
+            Positive → white bonus  (white gets BSS + pd,   black stays at BSS)
+            Negative → black bonus  (black gets BSS + |pd|, white stays at BSS)
         -->
         <com.google.android.material.slider.Slider
             android:id="@+id/sliderPointDiff"
@@ -132,12 +106,12 @@
             android:valueTo="120"
             android:value="0"
             android:stepSize="1"
-            app:thumbColor="#FFD700"
-            app:trackColorActive="#FFD700"
+            app:thumbColor="#CCCCCC"
+            app:trackColorActive="#CCCCCC"
             app:trackColorInactive="#444444"
             app:haloColor="@android:color/transparent" />
 
-        <!-- Slider axis labels -->
+        <!-- Slider axis labels — left = white bonus, right = black bonus -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -148,14 +122,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="⬜ White bonus"
+                android:text="⬛ Black bonus"
                 android:textColor="#666666"
                 android:textSize="11sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Black bonus ⬛"
+                android:text="White bonus ⬜"
                 android:textColor="#666666"
                 android:textSize="11sp" />
 
@@ -166,10 +140,10 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:text="Randomize &amp; Start"
-            android:textColor="#1A1A1A"
+            android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="15sp"
-            android:backgroundTint="#FFD700" />
+            android:backgroundTint="#444444" />
 
         <!-- ── Divider ─────────────────────────────────────── -->
         <View
@@ -213,7 +187,7 @@
 
         </LinearLayout>
 
-        <!-- Timer duration inputs — only visible when timer is enabled -->
+        <!-- Time format controls — only visible when timer is enabled -->
         <LinearLayout
             android:id="@+id/layoutTimerInputs"
             android:layout_width="match_parent"
@@ -221,49 +195,179 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <com.google.android.material.textfield.TextInputLayout
+            <!-- White time format -->
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxStrokeColor="#555555"
-                app:hintTextColor="#888888"
-                android:hint="White — minutes">
+                android:text="⬜  White"
+                android:textColor="#DDDDDD"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingBottom="8dp" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etWhiteMinutes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="number"
-                    android:textColor="#FFFFFF"
-                    android:text="10" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleWhiteTime"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxStrokeColor="#555555"
-                app:hintTextColor="#888888"
-                android:hint="Black — minutes">
+                app:singleSelection="true"
+                app:selectionRequired="true">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etBlackMinutes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="number"
-                    android:textColor="#FFFFFF"
-                    android:text="10" />
+                <Button
+                    android:id="@+id/btnWhite60"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="60m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Very Long – 60 minutes" />
 
-            </com.google.android.material.textfield.TextInputLayout>
+                <Button
+                    android:id="@+id/btnWhite30"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="30m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Long – 30 minutes" />
+
+                <Button
+                    android:id="@+id/btnWhite15"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="15m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Medium – 15 minutes" />
+
+                <Button
+                    android:id="@+id/btnWhite5"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="5m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Short – 5 minutes" />
+
+                <Button
+                    android:id="@+id/btnWhite1"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="1m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Bullet – 1 minute" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Timer values take effect on next Restart."
-                android:textColor="#666666"
-                android:textSize="11sp"
+                android:text="60m Very Long · 30m Long · 15m Medium · 5m Short · 1m Bullet"
+                android:textColor="#555555"
+                android:textSize="10sp"
+                android:paddingTop="4dp"
+                android:paddingBottom="16dp" />
+
+            <!-- Black time format -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⬛  Black"
+                android:textColor="#DDDDDD"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingBottom="8dp" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggleBlackTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true">
+
+                <Button
+                    android:id="@+id/btnBlack60"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="60m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Very Long – 60 minutes" />
+
+                <Button
+                    android:id="@+id/btnBlack30"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="30m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Long – 30 minutes" />
+
+                <Button
+                    android:id="@+id/btnBlack15"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="15m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Medium – 15 minutes" />
+
+                <Button
+                    android:id="@+id/btnBlack5"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="5m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Short – 5 minutes" />
+
+                <Button
+                    android:id="@+id/btnBlack1"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:text="1m"
+                    android:textSize="11sp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:contentDescription="Bullet – 1 minute" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Selecting a format resets that side's clock immediately."
+                android:textColor="#555555"
+                android:textSize="10sp"
                 android:paddingTop="6dp" />
 
         </LinearLayout>

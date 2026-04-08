@@ -44,8 +44,7 @@
 
         <!--
             Point Difference badge — only visible in randomized mode.
-            Sits between the title and the chess board.
-            Format: "Even game"  /  "⬜ White +5"  /  "⬛ Black +10"
+            Format: "⬜ 39  —  63 ⬛"
         -->
         <TextView
             android:id="@+id/tvPointDiff"
@@ -54,8 +53,8 @@
             android:layout_marginTop="4dp"
             android:paddingHorizontal="10dp"
             android:paddingVertical="3dp"
-            android:background="#22FFD700"
-            android:textColor="#FFD700"
+            android:background="#22CCCCCC"
+            android:textColor="#CCCCCC"
             android:textSize="13sp"
             android:textStyle="bold"
             android:visibility="gone"
@@ -105,7 +104,7 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ═══════════════════════════════════════════════════════════
-         Navigation drawer — custom layout (replaces NavigationView)
+         Navigation drawer
     ════════════════════════════════════════════════════════════════ -->
     <include layout="@layout/drawer_content" />
 

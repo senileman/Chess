@@ -1,12 +1,10 @@
 package com.example.chess
 
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -14,6 +12,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
@@ -33,12 +32,53 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSliderValue: TextView
     private lateinit var switchTimer: SwitchMaterial
     private lateinit var layoutTimerInputs: LinearLayout
-    private lateinit var etWhiteMinutes: TextInputEditText
-    private lateinit var etBlackMinutes: TextInputEditText
+    private lateinit var toggleWhiteTime: MaterialButtonToggleGroup
+    private lateinit var toggleBlackTime: MaterialButtonToggleGroup
 
     // ── Game state ───────────────────────────────────────────────────────────
     private val chessGame = ChessGame()
     private val handler = Handler(Looper.getMainLooper())
+
+    // ── Timer format state ───────────────────────────────────────────────────
+    private var whiteTimeSetting: Long = DEFAULT_TIME_MS
+    private var blackTimeSetting: Long = DEFAULT_TIME_MS
+
+    // Guard: prevents listeners from firing during programmatic sync
+    private var suppressListeners = false
+
+    // ── Time format table ────────────────────────────────────────────────────
+    companion object {
+        private val TIME_OPTIONS_MS = longArrayOf(
+            60 * 60_000L,   // Very Long  – 60 min
+            30 * 60_000L,   // Long       – 30 min
+            15 * 60_000L,   // Medium     – 15 min
+             5 * 60_000L,   // Short      –  5 min
+             1 * 60_000L    // Bullet     –  1 min
+        )
+        private val DEFAULT_TIME_MS = TIME_OPTIONS_MS[2]   // 15 min
+        private const val PREF_W_SETTING = "wTimeSetting"
+        private const val PREF_B_SETTING = "bTimeSetting"
+    }
+
+    private val whiteButtonIds = intArrayOf(
+        R.id.btnWhite60, R.id.btnWhite30, R.id.btnWhite15, R.id.btnWhite5, R.id.btnWhite1
+    )
+    private val blackButtonIds = intArrayOf(
+        R.id.btnBlack60, R.id.btnBlack30, R.id.btnBlack15, R.id.btnBlack5, R.id.btnBlack1
+    )
+
+    private fun timeMillisFromButtonId(btnId: Int): Long {
+        val idx = whiteButtonIds.indexOf(btnId).takeIf { it >= 0 }
+            ?: blackButtonIds.indexOf(btnId).takeIf { it >= 0 }
+            ?: return DEFAULT_TIME_MS
+        return TIME_OPTIONS_MS[idx]
+    }
+
+    private fun buttonIdForTime(isWhite: Boolean, timeMs: Long): Int {
+        val ids = if (isWhite) whiteButtonIds else blackButtonIds
+        val idx = TIME_OPTIONS_MS.indexOfFirst { it == timeMs }.takeIf { it >= 0 } ?: 2
+        return ids[idx]
+    }
 
     // ── Timer runnable ───────────────────────────────────────────────────────
     private val timerRunnable = object : Runnable {
@@ -63,15 +103,18 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         bindViews()
+        loadTimerSettings()
         setupDrawerListener()
         setupDrawerButtons()
         setupSlider()
         setupTimerToggle()
+        setupTimeToggleGroups()
 
         GameRepository.loadGame(this, chessGame)
         syncDrawerToGameState()
         updatePointDiffDisplay()
         updateTimerVisibility()
+        updateTimerUI()
 
         chessView.invalidate()
     }
@@ -84,7 +127,22 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         handler.removeCallbacks(timerRunnable)
+        saveTimerSettings()
         GameRepository.saveGame(this, chessGame)
+    }
+
+    // ── Timer settings persistence ────────────────────────────────────────────
+    private fun loadTimerSettings() {
+        val prefs = getSharedPreferences("chess_prefs", Context.MODE_PRIVATE)
+        whiteTimeSetting = prefs.getLong(PREF_W_SETTING, DEFAULT_TIME_MS)
+        blackTimeSetting = prefs.getLong(PREF_B_SETTING, DEFAULT_TIME_MS)
+    }
+
+    private fun saveTimerSettings() {
+        getSharedPreferences("chess_prefs", Context.MODE_PRIVATE).edit()
+            .putLong(PREF_W_SETTING, whiteTimeSetting)
+            .putLong(PREF_B_SETTING, blackTimeSetting)
+            .apply()
     }
 
     // ── View binding ──────────────────────────────────────────────────────────
@@ -96,30 +154,26 @@ class MainActivity : AppCompatActivity() {
         tvBlackTimer   = findViewById(R.id.tvBlackTimer)
         tvPointDiff    = findViewById(R.id.tvPointDiff)
 
-        etBaseScore      = findViewById(R.id.etBaseScore)
-        sliderPointDiff  = findViewById(R.id.sliderPointDiff)
-        tvSliderValue    = findViewById(R.id.tvSliderValue)
-        switchTimer      = findViewById(R.id.switchTimer)
+        etBaseScore       = findViewById(R.id.etBaseScore)
+        sliderPointDiff   = findViewById(R.id.sliderPointDiff)
+        tvSliderValue     = findViewById(R.id.tvSliderValue)
+        switchTimer       = findViewById(R.id.switchTimer)
         layoutTimerInputs = findViewById(R.id.layoutTimerInputs)
-        etWhiteMinutes   = findViewById(R.id.etWhiteMinutes)
-        etBlackMinutes   = findViewById(R.id.etBlackMinutes)
+        toggleWhiteTime   = findViewById(R.id.toggleWhiteTime)
+        toggleBlackTime   = findViewById(R.id.toggleBlackTime)
     }
 
-    // ── Drawer listener: pause timer on open, resume on close ─────────────────
+    // ── Drawer listener ───────────────────────────────────────────────────────
     private fun setupDrawerListener() {
         drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
             override fun onDrawerOpened(drawerView: View) {
-                // Pause the timer while the menu is open
                 handler.removeCallbacks(timerRunnable)
             }
-
             override fun onDrawerClosed(drawerView: View) {
-                // Resume the timer when menu closes (if it should be running)
                 if (chessGame.isTimerEnabled && !chessGame.isGameOver) {
                     handler.post(timerRunnable)
                 }
             }
-
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) = Unit
             override fun onDrawerStateChanged(newState: Int) = Unit
         })
@@ -131,14 +185,7 @@ class MainActivity : AppCompatActivity() {
             drawerLayout.openDrawer(GravityCompat.START)
         }
 
-        findViewById<Button>(R.id.btnDrawerRestart).setOnClickListener {
-            drawerLayout.closeDrawer(GravityCompat.START)
-            // Closing the drawer will resume the timer via onDrawerClosed;
-            // restartGame() immediately cancels it again, so order doesn't matter.
-            restartGame()
-        }
-
-        findViewById<Button>(R.id.btnRandomize).setOnClickListener {
+        findViewById<android.widget.Button>(R.id.btnRandomize).setOnClickListener {
             if (applyRandomizerSettings()) {
                 drawerLayout.closeDrawer(GravityCompat.START)
             }
@@ -154,38 +201,52 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Negative pd → white gets the bonus.  Positive pd → black gets the bonus.
+     * Positive pd → white gets the bonus.  Negative pd → black gets the bonus.
      *
-     * Example: pd = −24  →  "−24  ⬜ White bonus"
-     *          pd = +24  →  "+24  ⬛ Black bonus"
-     *          pd =   0  →  "0  (even)"
+     * +24  →  "+24  ⬜ White bonus"
+     * −24  →  "−24  ⬛ Black bonus"
+     *   0  →  "0  (even)"
      */
     private fun formatSliderLabel(pd: Int): String = when {
         pd == 0 -> "0  (even)"
-        pd < 0  -> "$pd  ⬜ White bonus"
-        else    -> "+$pd  ⬛ Black bonus"
+        pd > 0  -> "+$pd  ⬜ White bonus"
+        else    -> "$pd  ⬛ Black bonus"
     }
 
     // ── Timer toggle ──────────────────────────────────────────────────────────
     private fun setupTimerToggle() {
         switchTimer.setOnCheckedChangeListener { _, isChecked ->
-            layoutTimerInputs.visibility = if (isChecked) View.VISIBLE else View.GONE
+            if (suppressListeners) return@setOnCheckedChangeListener
 
-            if (!isChecked) {
-                // Disable timer immediately
-                chessGame.isTimerEnabled = false
-                handler.removeCallbacks(timerRunnable)
-                updateTimerVisibility()
+            layoutTimerInputs.visibility = if (isChecked) View.VISIBLE else View.GONE
+            chessGame.isTimerEnabled = isChecked
+
+            handler.removeCallbacks(timerRunnable)
+            if (isChecked && !chessGame.isGameOver) {
+                handler.post(timerRunnable)
             }
-            // Enabling is applied on the next Restart so the inputs are fully committed.
+            updateTimerVisibility()
+        }
+    }
+
+    // ── Time format toggle groups ─────────────────────────────────────────────
+    private fun setupTimeToggleGroups() {
+        toggleWhiteTime.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (suppressListeners || !isChecked) return@addOnButtonCheckedListener
+            whiteTimeSetting = timeMillisFromButtonId(checkedId)
+            chessGame.whiteTimeMillis = whiteTimeSetting
+            updateTimerUI()
+        }
+
+        toggleBlackTime.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (suppressListeners || !isChecked) return@addOnButtonCheckedListener
+            blackTimeSetting = timeMillisFromButtonId(checkedId)
+            chessGame.blackTimeMillis = blackTimeSetting
+            updateTimerUI()
         }
     }
 
     // ── Randomizer ────────────────────────────────────────────────────────────
-    /**
-     * Validates inputs and calls [ChessGame.randomizeBoard].
-     * Returns true if successful (so the drawer can be closed).
-     */
     private fun applyRandomizerSettings(): Boolean {
         val bss = etBaseScore.text.toString().toIntOrNull()
         if (bss == null || bss < ChessGame.MIN_SCORE || bss > ChessGame.MAX_SCORE) {
@@ -196,9 +257,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         val pd = sliderPointDiff.value.toInt()
-        // Neither side should exceed MAX_SCORE after applying the bonus.
-        val whiteTarget = bss + if (pd < 0) -pd else 0
-        val blackTarget = bss + if (pd > 0) pd else 0
+        // pd > 0 → white bonus; pd < 0 → black bonus
+        val whiteTarget = bss + if (pd > 0) pd else 0
+        val blackTarget = bss + if (pd < 0) -pd else 0
         if (whiteTarget > ChessGame.MAX_SCORE || blackTarget > ChessGame.MAX_SCORE) {
             Toast.makeText(this,
                 "Combination exceeds max score (${ChessGame.MAX_SCORE}). " +
@@ -210,20 +271,25 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(timerRunnable)
         chessGame.baseStartingScore = bss
         chessGame.pointDifference   = pd
+
+        chessGame.whiteTimeMillis = whiteTimeSetting
+        chessGame.blackTimeMillis = blackTimeSetting
+
         chessGame.randomizeBoard()
         chessView.resetSelection()
         chessView.invalidate()
         updatePointDiffDisplay()
+        updateTimerUI()
+
+        if (chessGame.isTimerEnabled) handler.post(timerRunnable)
 
         Toast.makeText(this, "Board randomized!", Toast.LENGTH_SHORT).show()
         return true
     }
 
     /**
-     * Displays the actual point totals outside the drawer.
-     *
-     * Format:  "⬜ 39  —  63 ⬛"  (or "⬜ 39  —  39 ⬛" for even)
-     * Hidden entirely in standard (non-randomized) mode.
+     * Displays point totals above the board.
+     * pd > 0 → white bonus; pd < 0 → black bonus.
      */
     private fun updatePointDiffDisplay() {
         if (!chessGame.isRandomized) {
@@ -232,22 +298,26 @@ class MainActivity : AppCompatActivity() {
         }
         val pd  = chessGame.pointDifference
         val bss = chessGame.baseStartingScore
-        val w   = bss + if (pd < 0) -pd else 0
-        val b   = bss + if (pd > 0) pd  else 0
+        val w   = bss + if (pd > 0) pd  else 0
+        val b   = bss + if (pd < 0) -pd else 0
         tvPointDiff.text = "⬜ $w  —  $b ⬛"
         tvPointDiff.visibility = View.VISIBLE
     }
 
-    /** Syncs drawer inputs to whatever was restored from disk. */
     private fun syncDrawerToGameState() {
+        suppressListeners = true
+
         etBaseScore.setText(chessGame.baseStartingScore.toString())
         sliderPointDiff.value = chessGame.pointDifference.toFloat().coerceIn(-120f, 120f)
         tvSliderValue.text = formatSliderLabel(chessGame.pointDifference)
 
         switchTimer.isChecked = chessGame.isTimerEnabled
         layoutTimerInputs.visibility = if (chessGame.isTimerEnabled) View.VISIBLE else View.GONE
-        etWhiteMinutes.setText((chessGame.whiteTimeMillis / 60000).toString())
-        etBlackMinutes.setText((chessGame.blackTimeMillis / 60000).toString())
+
+        toggleWhiteTime.check(buttonIdForTime(isWhite = true,  timeMs = whiteTimeSetting))
+        toggleBlackTime.check(buttonIdForTime(isWhite = false, timeMs = blackTimeSetting))
+
+        suppressListeners = false
     }
 
     // ── Timer helpers ─────────────────────────────────────────────────────────
@@ -264,40 +334,4 @@ class MainActivity : AppCompatActivity() {
 
     private fun formatTime(ms: Long): String =
         String.format("%02d:%02d", (ms / 1000) / 60, (ms / 1000) % 60)
-
-    // ── Restart ───────────────────────────────────────────────────────────────
-    /**
-     * If the timer toggle is on, commits the minute inputs before restarting.
-     * Randomized mode re-randomizes; standard mode resets to normal chess.
-     */
-    private fun restartGame() {
-        handler.removeCallbacks(timerRunnable)
-
-        // Commit timer settings from drawer inputs
-        if (switchTimer.isChecked) {
-            val wMin = etWhiteMinutes.text.toString().toLongOrNull() ?: 10L
-            val bMin = etBlackMinutes.text.toString().toLongOrNull() ?: 10L
-            chessGame.whiteTimeMillis = wMin * 60_000L
-            chessGame.blackTimeMillis = bMin * 60_000L
-            chessGame.isTimerEnabled  = true
-        } else {
-            chessGame.isTimerEnabled = false
-        }
-
-        if (chessGame.isRandomized) {
-            chessGame.randomizeBoard()
-            updatePointDiffDisplay()
-        } else {
-            chessGame.reset()
-            tvPointDiff.visibility = View.GONE
-        }
-
-        chessView.resetSelection()
-        chessView.invalidate()
-        updateTimerVisibility()
-        updateTimerUI()
-
-        if (chessGame.isTimerEnabled) handler.post(timerRunnable)
-        Toast.makeText(this, "Game Restarted", Toast.LENGTH_SHORT).show()
-    }
 }

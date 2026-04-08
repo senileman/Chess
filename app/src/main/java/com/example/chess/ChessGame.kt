@@ -16,13 +16,11 @@ class ChessGame {
     var isRandomized: Boolean = false
     var baseStartingScore: Int = DEFAULT_BASE_SCORE
     /**
-     * pointDifference > 0  →  black receives the bonus  (black gets BSS + pd)
-     * pointDifference < 0  →  white receives the bonus  (white gets BSS + |pd|)
+     * pointDifference > 0  →  white receives the bonus  (white gets BSS + pd)
+     * pointDifference < 0  →  black receives the bonus  (black gets BSS + |pd|)
      * pointDifference = 0  →  both sides equal at BSS
      *
      * The BASE side always gets exactly BSS. Only the bonus side rises above it.
-     * This means the slider adds material to one side rather than removing it
-     * from the other, keeping BSS as the floor for both players.
      */
     var pointDifference: Int = 0
 
@@ -71,14 +69,12 @@ class ChessGame {
     // -------------------------------------------------------------------------
     /**
      * Point-spread formula:
-     *   whiteTarget = BSS + if (pointDifference < 0) -pointDifference else 0
-     *   blackTarget = BSS + if (pointDifference > 0)  pointDifference else 0
+     *   whiteTarget = BSS + if (pointDifference > 0)  pointDifference else 0
+     *   blackTarget = BSS + if (pointDifference < 0) -pointDifference else 0
      *
-     * Example: BSS=39, pd=+24  →  white=39,  black=63
-     * Example: BSS=39, pd=-24  →  white=63,  black=39
+     * Example: BSS=39, pd=+24  →  white=63,  black=39
+     * Example: BSS=39, pd=-24  →  white=39,  black=63
      * Example: BSS=39, pd=0    →  white=39,  black=39
-     *
-     * Both targets are clamped to [MIN_SCORE, MAX_SCORE] as a safety net.
      */
     fun randomizeBoard() {
         piecesBox.clear()
@@ -88,9 +84,9 @@ class ChessGame {
         enPassantTarget = null
         isRandomized = true
 
-        val whiteTarget = (baseStartingScore + if (pointDifference < 0) -pointDifference else 0)
+        val whiteTarget = (baseStartingScore + if (pointDifference > 0) pointDifference else 0)
             .coerceIn(MIN_SCORE, MAX_SCORE)
-        val blackTarget = (baseStartingScore + if (pointDifference > 0) pointDifference else 0)
+        val blackTarget = (baseStartingScore + if (pointDifference < 0) -pointDifference else 0)
             .coerceIn(MIN_SCORE, MAX_SCORE)
 
         var id = 0
@@ -114,7 +110,6 @@ class ChessGame {
 
     /**
      * Generates exactly [count] pieces whose values sum to [target].
-     * Uses slot-by-slot constrained random selection from {1, 3, 5, 9}.
      */
     private fun generatePieces(target: Int, count: Int): List<Rank> {
         val validValues = listOf(1, 3, 5, 9)
@@ -162,7 +157,7 @@ class ChessGame {
     }
 
     // -------------------------------------------------------------------------
-    // Core game logic (unchanged)
+    // Core game logic
     // -------------------------------------------------------------------------
     fun pieceAt(col: Int, row: Int): Piece? = piecesBox.find { it.col == col && it.row == row }
 
